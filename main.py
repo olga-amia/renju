@@ -1,5 +1,5 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 from PyQt6.QtGui import QPainter, QPen , QBrush, QColor
 from PyQt6.QtCore import Qt, QPoint
 
@@ -17,6 +17,8 @@ class MyWindow(QMainWindow):
 
         self.circles = []   # Список для хранения координат кружков
         self.ball_color = 'white'
+        self.max_balls = 5
+        self.game_over = False
 
 
     def paintEvent(self, event):
@@ -39,6 +41,8 @@ class MyWindow(QMainWindow):
         for circle in self.circles:
             self.draw_ball(painter, circle[0], circle[1], circle[2])
 
+
+
     def draw_ball(self, painter, x, y, color):
         """Рисует черный или белый круг"""
         if color == 'white': 
@@ -50,6 +54,10 @@ class MyWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         """Обрабатываем клик мыши"""
+
+        if self.game_over:   # Если достигнуто максимальное количество шаров, не обрабатываем больше кликов
+            return
+        
         x = event.position().x()
         y = event.position().y()
 
@@ -62,14 +70,25 @@ class MyWindow(QMainWindow):
             self.circles.append((col * self.cell_size + 5, row * self.cell_size + 5, self.ball_color))
             self.board[row][col] = self.ball_color  # Обозначаем, что в этой клетке уже есть круг
 
-            if self.ball_color == 'white':
+            if self.ball_color == 'white':   # меняем цвет для следующего круга
                 self.ball_color = 'black'
             else:
                 self.ball_color = 'white'
 
             self.update() 
 
-            
+            if len(self.circles) >= self.max_balls:
+                self.game_over = True  # Устанавливаем флаг завершения игры
+                self.show_game_over_message()
+
+    def show_game_over_message(self):
+        """Показываем сообщение о завершении игры"""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Игра завершена")
+        msg_box.setText("Игра завершена! Вы нарисовали 5 кругов.(победили белые)")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()  # Ожидаем нажатия кнопки "ОК"
+
 
 app = QApplication([])
 window = MyWindow()
