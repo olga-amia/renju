@@ -1,6 +1,6 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
-from PyQt6.QtGui import QPainter, QPen , QBrush, QColor
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
 from PyQt6.QtCore import Qt, QPoint
 
 
@@ -17,7 +17,6 @@ class MyWindow(QMainWindow):
 
         self.circles = []   # Список для хранения координат кружков
         self.ball_color = 'white'
-        self.max_balls = 5
         self.game_over = False
 
 
@@ -41,7 +40,36 @@ class MyWindow(QMainWindow):
         for circle in self.circles:
             self.draw_ball(painter, circle[0], circle[1], circle[2])
 
+    def is_five(self, row, col, color):
+        """Проверяет, есть ли 5 одинаковых кружков подряд"""
+        directions = [
+            (1, 0),  # горизонталь
+            (0, 1),  # вертикаль
+            (1, 1),  # диагональ (вниз вправо)
+            (1, -1)  # диагональ (вниз влево)
+        ]
 
+        for dr, dc in directions:
+            count = 1  # Включаем текущий кружок
+            # Проверяем в одну сторону
+            r = row + dr
+            c = col + dc
+            while 0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r][c] == color:
+                count += 1
+                r += dr
+                c += dc
+
+            # Проверяем в другую сторону
+            r, c = row - dr, col - dc
+            while 0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r][c] == color:
+                count += 1
+                r -= dr
+                c -= dc
+
+            if count >= 5:
+                return True
+
+        return False
 
     def draw_ball(self, painter, x, y, color):
         """Рисует черный или белый круг"""
@@ -54,8 +82,7 @@ class MyWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         """Обрабатываем клик мыши"""
-
-        if self.game_over:   # Если достигнуто максимальное количество шаров, не обрабатываем больше кликов
+        if self.game_over:   # Если игра завершена, не обрабатываем больше кликов
             return
         
         x = event.position().x()
@@ -70,22 +97,23 @@ class MyWindow(QMainWindow):
             self.circles.append((col * self.cell_size + 5, row * self.cell_size + 5, self.ball_color))
             self.board[row][col] = self.ball_color  # Обозначаем, что в этой клетке уже есть круг
 
-            if self.ball_color == 'white':   # меняем цвет для следующего круга
+            if self.is_five(row, col, self.ball_color):  # Проверяем, есть ли 5 в ряд
+                self.game_over = True
+                self.show_game_over_message(self.ball_color)
+
+            # Меняем цвет для следующего круга
+            if self.ball_color == 'white':
                 self.ball_color = 'black'
             else:
                 self.ball_color = 'white'
 
-            self.update() 
+            self.update()
 
-            if len(self.circles) >= self.max_balls:
-                self.game_over = True  # Устанавливаем флаг завершения игры
-                self.show_game_over_message()
-
-    def show_game_over_message(self):
+    def show_game_over_message(self, winner):
         """Показываем сообщение о завершении игры"""
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Игра завершена")
-        msg_box.setText("Игра завершена! Вы нарисовали 5 кругов.(победили белые)")
+        msg_box.setText(f"Игра завершена! Победили {winner}.")
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()  # Ожидаем нажатия кнопки "ОК"
 
