@@ -2,7 +2,11 @@ import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
 from PyQt6.QtCore import Qt, QPoint
+from enum import Enum
 
+class Color(Enum):
+    WHITE = 1
+    BLACK = 2
 
 class MyWindow(QMainWindow):
     def __init__(self):
@@ -15,14 +19,13 @@ class MyWindow(QMainWindow):
         self.cell_size = 40  # Размер одной клетки
         self.board = [[None for _ in range(self.board_size)] for _ in range(self.board_size)]  # Игровое поле
 
-        self.circles = []   # Список для хранения координат кружков
-        self.ball_color = 'white'
+        self.ball_color = Color.WHITE
         self.game_over = False
 
+        self.setStyleSheet("background-color: rgb(255, 250, 205);")
 
     def paintEvent(self, event):
 
-        self.setStyleSheet("background-color: rgb(255, 250, 205);")
         painter = QPainter(self)
         pen = QPen(Qt.GlobalColor.black, 3)
         painter.setPen(pen)
@@ -36,9 +39,11 @@ class MyWindow(QMainWindow):
             x += 40
             y += 40
 
-        # Рисуем кружки
-        for circle in self.circles:
-            self.draw_ball(painter, circle[0], circle[1], circle[2])
+        # Рисуем кружки на основе значений в self.board
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                if self.board[row][col] is not None:
+                    self.draw_ball(painter, col * self.cell_size + 5, row * self.cell_size + 5, self.board[row][col])
 
     def is_five(self, row, col, color):
         """Проверяет, есть ли 5 одинаковых кружков подряд"""
@@ -73,15 +78,16 @@ class MyWindow(QMainWindow):
 
     def draw_ball(self, painter, x, y, color):
         """Рисует черный или белый круг"""
-        if color == 'white': 
+        if color == Color.WHITE: 
             painter.setBrush(QBrush(QColor(255, 255, 255))) 
-        else: 
+        elif color == Color.BLACK:
             painter.setBrush(QBrush(QColor(0, 0, 0)))
-        painter.setPen(Qt.PenStyle.NoPen)  # Убираем границу круга
+        painter.setPen(Qt.PenStyle.SolidLine)  # Граница белого круга
         painter.drawEllipse(x, y, 30, 30)
 
     def mousePressEvent(self, event):
         """Обрабатываем клик мыши"""
+
         if self.game_over:   # Если игра завершена, не обрабатываем больше кликов
             return
         
@@ -93,8 +99,6 @@ class MyWindow(QMainWindow):
         row = int(y // self.cell_size)
 
         if self.board[row][col] is None:  # Если клетка пуста, ставим отметку
-            # Добавляем центр клетки в список кружков
-            self.circles.append((col * self.cell_size + 5, row * self.cell_size + 5, self.ball_color))
             self.board[row][col] = self.ball_color  # Обозначаем, что в этой клетке уже есть круг
 
             if self.is_five(row, col, self.ball_color):  # Проверяем, есть ли 5 в ряд
@@ -102,21 +106,45 @@ class MyWindow(QMainWindow):
                 self.show_game_over_message(self.ball_color)
 
             # Меняем цвет для следующего круга
-            if self.ball_color == 'white':
-                self.ball_color = 'black'
-            else:
-                self.ball_color = 'white'
+            self.ball_color = Color.BLACK if self.ball_color == Color.WHITE else Color.WHITE
 
             self.update()
+
+    def keyPressEvent(self, event):
+        """Обрабатываем нажатие клавиш"""
+        if event.key() == Qt.Key.Key_Escape:  # Если нажата клавиша Escape
+            self.show_help_window()
 
     def show_game_over_message(self, winner):
         """Показываем сообщение о завершении игры"""
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Игра завершена")
-        msg_box.setText(f"Игра завершена! Победили {winner}.")
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg_box.exec()  # Ожидаем нажатия кнопки "ОК"
+        winner_color = "белые" if winner == Color.WHITE else "чёрные"
+        msg_box.setText(f"Игра завершена! Победили {winner_color}.")
 
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Retry)
+        result = msg_box.exec()  # Ожидаем нажатия кнопки
+    
+        if result == QMessageBox.StandardButton.Retry:
+            self.restart()  # Перезапуск игры при выборе Retry
+
+    def show_help_window(self):
+        """Показывает окошко при esc"""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Опции")
+        msg_box.setText("Вы хотите начать заново?")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        result = msg_box.exec()
+
+        if result == QMessageBox.StandardButton.Yes:
+            self.restart()
+
+    def restart(self):
+        """Перезапуск"""
+        self.board = [[None for _ in range(self.board_size)] for _ in range(self.board_size)]  # Игровое поле
+        self.ball_color = Color.WHITE
+        self.game_over = False
+        self.update()
 
 app = QApplication([])
 window = MyWindow()
