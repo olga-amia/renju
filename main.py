@@ -21,8 +21,51 @@ class MyWindow(QMainWindow):
 
         self.ball_color = Color.WHITE
         self.game_over = False
+        self.vs_computer = False  # Режим игры: игрок против компьютера
 
         self.setStyleSheet("background-color: rgb(255, 250, 205);")
+        self.select_game_mode()  # Выбор режима игры
+
+    def select_game_mode(self):
+        msg_box = QMessageBox(self)
+        vs_computer_button = msg_box.addButton("Играть против компьютера", QMessageBox.ButtonRole.AcceptRole)
+        vs_player_button = msg_box.addButton("Играть против игрока", QMessageBox.ButtonRole.AcceptRole)
+        
+        msg_box.setWindowTitle("Выбор режима игры")
+        msg_box.exec()
+
+        if msg_box.clickedButton() == vs_computer_button:
+            self.vs_computer = True
+            self.first_comp_move()  # Компьютер делает первый ход
+
+    def first_comp_move(self):
+        """Компьютер делает первый ход в центр"""
+        self.board[7][7] = Color.WHITE  # Компьютер ставит белый шар в центр
+        self.ball_color = Color.BLACK  # Теперь ход игрока (черный)
+        self.update()
+
+    def computer_move(self):
+        """Функция, позволяющая компьютеру сделать следующий ход"""
+        if self.game_over or not self.vs_computer:  # Если игра завершена или игра не против компьютера
+            return
+
+        # Пример простого хода компьютера — выбираем первую доступную пустую клетку
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                if self.board[row][col] is None:
+                    self.board[row][col] = Color.WHITE  # Компьютер ставит белый шар
+                    break
+            else:
+                continue
+            break
+
+        # Проверяем победу
+        if self.is_five(row, col, Color.WHITE):
+            self.game_over = True
+            self.show_game_over_message(Color.WHITE)
+
+        self.ball_color = Color.BLACK  # Меняем ход на игрока (черный)
+        self.update()
 
     def paintEvent(self, event):
 
@@ -104,11 +147,15 @@ class MyWindow(QMainWindow):
             if self.is_five(row, col, self.ball_color):  # Проверяем, есть ли 5 в ряд
                 self.game_over = True
                 self.show_game_over_message(self.ball_color)
+                return  # Завершаем выполнение, чтобы избежать хода компьютера после завершения игры
 
             # Меняем цвет для следующего круга
             self.ball_color = Color.BLACK if self.ball_color == Color.WHITE else Color.WHITE
 
             self.update()
+
+            if self.vs_computer and self.ball_color == Color.WHITE and not self.game_over:  # Если играет компьютер, он делает ход
+                self.computer_move()
 
     def keyPressEvent(self, event):
         """Обрабатываем нажатие клавиш"""
@@ -142,8 +189,12 @@ class MyWindow(QMainWindow):
     def restart(self):
         """Перезапуск"""
         self.board = [[None for _ in range(self.board_size)] for _ in range(self.board_size)]  # Игровое поле
-        self.ball_color = Color.WHITE
         self.game_over = False
+        if self.vs_computer:
+            self.ball_color = Color.BLACK
+            self.first_comp_move()  # Если игра с компьютером, то он делает первый ход
+        else:
+            self.ball_color = Color.WHITE
         self.update()
 
 app = QApplication([])
