@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
 from PyQt6.QtCore import Qt, QPoint
 from enum import Enum
+import random
 
 class Color(Enum):
     WHITE = 1
@@ -49,18 +50,43 @@ class MyWindow(QMainWindow):
         if self.game_over or not self.vs_computer:  # Если игра завершена или игра не против компьютера
             return
 
-        # Пример простого хода компьютера — выбираем первую доступную пустую клетку
-        for row in range(self.board_size):
-            for col in range(self.board_size):
-                if self.board[row][col] is None:
-                    self.board[row][col] = Color.WHITE  # Компьютер ставит белый шар
-                    break
-            else:
-                continue
-            break
+        possible_moves = [(r, c) for r in range(self.board_size) for c in range(self.board_size) if self.board[r][c] is None]
 
-        # Проверяем победу
-        if self.is_five(row, col, Color.WHITE):
+        last_move = None
+        black_block = None
+        max_in_row = 0
+        best_moves_list = []
+
+        for r, c in possible_moves:
+            white_move = self.is_five(r, c, Color.WHITE)
+            black_move = self.is_five(r, c, Color.BLACK)
+
+            if white_move >= 5: # ходит, если есть возможность выиграть
+                last_move = (r, c)
+                break
+
+            if black_move >= 5: # блокирует победу черных
+                black_block = (r, c)
+
+            if white_move == max_in_row:
+                best_moves_list += [(r, c)]
+
+            elif white_move > max_in_row:
+                max_in_row = white_move
+                best_moves_list = [(r, c)]
+
+        if not last_move:
+            if black_block: # Если найден ход для блокировки чёрных, блокируем
+                last_move = black_block
+
+            else:
+                last_move = random.choice(best_moves_list)
+
+        row, col = last_move
+        self.board[row][col] = Color.WHITE  # Компьютер ставит белую фишку
+
+        # Проверка на победу
+        if self.is_five(row, col, Color.WHITE) >= 5:
             self.game_over = True
             self.show_game_over_message(Color.WHITE)
 
@@ -89,13 +115,14 @@ class MyWindow(QMainWindow):
                     self.draw_ball(painter, col * self.cell_size + 5, row * self.cell_size + 5, self.board[row][col])
 
     def is_five(self, row, col, color):
-        """Проверяет, есть ли 5 одинаковых кружков подряд"""
+        """Считает макс количество кружков подряд"""
         directions = [
             (1, 0),  # горизонталь
             (0, 1),  # вертикаль
             (1, 1),  # диагональ (вниз вправо)
             (1, -1)  # диагональ (вниз влево)
         ]
+        score = []
 
         for dr, dc in directions:
             count = 1  # Включаем текущий кружок
@@ -113,11 +140,10 @@ class MyWindow(QMainWindow):
                 count += 1
                 r -= dr
                 c -= dc
+            score.append(count)
 
-            if count >= 5:
-                return True
+        return max(score)
 
-        return False
 
     def draw_ball(self, painter, x, y, color):
         """Рисует черный или белый круг"""
@@ -144,7 +170,7 @@ class MyWindow(QMainWindow):
         if self.board[row][col] is None:  # Если клетка пуста, ставим отметку
             self.board[row][col] = self.ball_color  # Обозначаем, что в этой клетке уже есть круг
 
-            if self.is_five(row, col, self.ball_color):  # Проверяем, есть ли 5 в ряд
+            if self.is_five(row, col, self.ball_color) >= 5:  # Проверяем, есть ли 5 в ряд
                 self.game_over = True
                 self.show_game_over_message(self.ball_color)
                 return  # Завершаем выполнение, чтобы избежать хода компьютера после завершения игры
@@ -166,8 +192,12 @@ class MyWindow(QMainWindow):
         """Показываем сообщение о завершении игры"""
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Игра завершена")
-        winner_color = "белые" if winner == Color.WHITE else "чёрные"
-        msg_box.setText(f"Игра завершена! Победили {winner_color}.")
+        if self.vs_computer:
+            text = "Вы выиграли!" if winner == Color.BLACK else "Вы проиграли :("
+            msg_box.setText(text)
+        else:
+            winner_color = "белые" if winner == Color.WHITE else "чёрные"
+            msg_box.setText(f"Победили {winner_color}.")
 
         msg_box.setStandardButtons(QMessageBox.StandardButton.Retry)
         result = msg_box.exec()  # Ожидаем нажатия кнопки
